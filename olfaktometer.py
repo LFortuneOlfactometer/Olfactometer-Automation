@@ -27,18 +27,18 @@ GPIO.setup(12, GPIO.OUT)#Ventil4
 GPIO.setup(13, GPIO.OUT)#8
 GPIO.setup(14, GPIO.OUT)#12
 GPIO.setup(15, GPIO.OUT)#16
-order=[0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15]#reihenfolge in der die Ventile aufgehen müssen
+order=[0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15]#GPIO-Reihenfolge in der die Ventile aufgehen müssen
 
-name=input('Experimentbezeichnung: ')
+name=input('Name of the experiment: ')
 path=('/home/pi/Experimente/'+name)
 os.mkdir(path)
-nproben=int(input('Wie viele Proben werden untersucht?: '))
+nproben=int(input('How many odors: '))
 namen=[]
-print('Niedrigste Konzentration zuerst.')
+print('Lowest concentration first.')
 for i in range(nproben):
-    print('Bezeichnung der Probe', i+1)
+    print('Name of odor', i+1)
     namen.append(input())
-    print('Platziere die Probe an Ventil ', i+1)
+    print('Place odor at valve ', i+1)
 messungen={}
 
 class CoordinateStore:
@@ -46,7 +46,7 @@ class CoordinateStore:
         super().__init__()
         self.points = []       
 # mouse callback function
-    def set_coordinates(self, event,x,y, flags,param):#Koordinaten durch Doppelklick
+    def set_coordinates(self, event,x,y, flags,param): #Coordinates per doubleclick
         if event == cv2.EVENT_LBUTTONDBLCLK:
             global ix, iy
             ix, iy = x, y 
@@ -57,7 +57,7 @@ class CoordinateStore:
 coordinateStore1 = CoordinateStore()
 
 cap = cv2.VideoCapture(0)
-#cap = cv2.VideoCapture('/home/pi/Experimente/Oa/23_Oa_Cit_241019/run.avi')
+#cap = cv2.VideoCapture('path/to/recorded/video')
 cv2.namedWindow('image')
 cv2.setMouseCallback('image', coordinateStore1.set_coordinates)
 #recording:
@@ -66,20 +66,22 @@ out = cv2.VideoWriter('run.avi', fourcc, 5.0, (640,480))
 
 armkoordinaten = [(118, 85), (151, 419), (494, 389), (458, 45)]
 
-def showarms(): #zeigt die Koordinaten der Arme
+#shows coordinates of arena inlets
+def showinlets(): 
     global frame, armkoordinaten
     cv2.circle(frame, (armkoordinaten[0][0], armkoordinaten[0][1]), 5, (0,0,255), -1)#Arm1
     cv2.circle(frame, (armkoordinaten[1][0], armkoordinaten[1][1]), 5, (0,0,255), -1)#Arm2
     cv2.circle(frame, (armkoordinaten[2][0], armkoordinaten[2][1]), 5, (0,0,255), -1)#Arm3
     cv2.circle(frame, (armkoordinaten[3][0], armkoordinaten[3][1]), 5, (0,0,255), -1)#Arm4
 
-def armcorrect():#Funktion zu Korrektur der Armkoordinaten
+#Function to correct coordinates of arena exits
+def armcorrect():
     global frame, ix, iy, click, armkoordinaten
     for i in range(4):
-        print('Doppelklick auf Ausgang von Arm ', i+1)
+        print('Doubleclick on arena inlet ', i+1)
         while(1):
             ret, frame = cap.read()
-            showarms()
+            showinlets()
             if click == True:
                 armkoordinaten[i]=(ix, iy)
                 #print(armkoordinaten)
@@ -88,9 +90,10 @@ def armcorrect():#Funktion zu Korrektur der Armkoordinaten
             cv2.imshow('image', frame)
             if cv2.waitKey(20) &0xFF ==27:
                 break
-    print('Befinden sich die Punkte jetzt über den Ausgängen? (y/n)')
-        
-def stoppuhr(): #fkt die misst, wie lange sich das tier in welchem Arm aufhält
+    print('Are the displayed dots located precisely over the four arena inlets? (y/n)')
+
+ #Function for measuring how much time the animal spends in which arm of arena       
+def stoppuhr(): 
     global a1, a2, a3, a4, mitte, a1s, a2s, a3s, a4s, mitteS, zeit1, zeit2, armkoordinaten
     if hypot((x+75-armkoordinaten[0][0]), (y+75-armkoordinaten[0][1])) <= 175: #Arm nr. 1
         if a1s == False:
@@ -155,26 +158,27 @@ def stoppuhr(): #fkt die misst, wie lange sich das tier in welchem Arm aufhält
             
 def resetstoppuhr():
     global a1, a2, a3, a4, mitte, a1s, a2s, a3s, a4s, mitteS
-    a1=0#Zeiten
+    a1=0#Times
     a2=0
     a3=0
     a4=0
     mitte=0
-    a1s=False#Positionen
+    a1s=False#PositiPositionsonen
     a2s=False
     a3s=False
     a4s=False
     mitteS=False
-            
+
+#olfaction experiment function            
 def olfa():
     global zeitR, rundenZeit, clean, runde, R, a1, a2, a3, a4, mitte, a1s, a2s, a3s, a4s, mitteS, rimage
     if clean==True:
-        GPIO.output(order[runde-1], GPIO.HIGH)#ventil auf
+        GPIO.output(order[runde-1], GPIO.HIGH)#open valve
         rundenZeit=time.time()-zeitR
         rimage=cv2.putText(frame, R, (17,444), cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,255),1)
         stoppuhr()
         if rundenZeit>=30:
-            GPIO.output(order[runde-1], GPIO.LOW)#Ventil zu
+            GPIO.output(order[runde-1], GPIO.LOW)#close valve
             clean=False
             zeitR=time.time()
             messungen[namen[runde-1]]=[a1, a2, a3, a4, mitte]
@@ -188,7 +192,8 @@ def olfa():
             resetstoppuhr()
             zeitR=time.time()
 
-def record():#Aufnahmefunktion
+#Video recording function
+def record():
     global rimage
     if ret==True:
         out.write(rimage)
@@ -198,23 +203,26 @@ def timer():
     elapsedZeit=time.time()-zeit
     timeS=format(elapsedZeit, '.2f')
     rimage=cv2.putText(frame, timeS, (17,464), cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),1)
-       
-def abbruch():#Abbruchfunktion
+
+#cancel function     
+def abbruch():
     cap.release()
     cv2.destroyAllWindows()
-    print('Experiment abgebrochen')
+    print('Experiment cancelled')
     sys.exit()
 
-def bildverarbeitung(): #Bearbeitung der Bilddaten , um Tracking zu ermöglichen.
+#Modifying image data for tracking
+def bildverarbeitung(): 
     global frame, blur, fgmask, fgbg
-    #Hintergrundsubtraction
     fgmask = fgbg.apply(frame)
     #unscharf
     blur = cv2.GaussianBlur(fgmask, (13, 13), 0)
-#Hintergrundsubtraction
+
+#Backgroundsubtraction
 fgbg = cv2.bgsegm.createBackgroundSubtractorMOG()
-    
-def track(): #Trackingfunktion  #?
+
+#Trackingfunction      
+def track(): 
     global frame, blur, track_window, term_crit, ret, x, y
     if ret == True:
         # apply meanshift to get the new location
@@ -235,38 +243,38 @@ def showarms():
     cv2.circle(frame, (armkoordinaten[3][0], armkoordinaten[3][1]), 175, (0,0,255), 1)
     cv2.circle(frame, (armkoordinaten[3][0], armkoordinaten[3][1]), 5, (0,0,255), -1) 
 
-click = False # = noch nicht geklickt
-#Test, ob koordinaten der Arme stimmen
-print('Befinden sich die Punkte über den Ausgängen der Arme? (y/n)')
+click = False # = no doubleclick detected yet
+#correct arena inlet coordinates if necessary
+print('Are the displayed dots located precisely over the four arena inlets? (y/n)')
 while(1):
     ret, frame = cap.read()
     showarms()
     cv2.imshow('image', frame)
     if cv2.waitKey(20) == ord('y') or cv2.waitKey(20) &0xFF==27:
-        print('Koordinaten korrekt')
+        print('Coordinates correct')
         print(armkoordinaten)
         break
     elif cv2.waitKey(30) == ord('n'):
-        print('Korrektur durchführen')
+        print('Reset arena arm exit coordinates')
         armcorrect()    
 cap.release
 cv2.destroyAllWindows
 
-pixelprometer = hypot(armkoordinaten[0][0]-armkoordinaten[2][0], armkoordinaten[0][1]-armkoordinaten[2][1])*(10/3)
+pixelprometer = hypot(armkoordinaten[0][0]-armkoordinaten[2][0], armkoordinaten[0][1]-armkoordinaten[2][1])*(10/3) #30=distance between exits
 
-#oeffne videostream zur Markierung der biene
-print('Doppelklick auf das Tier, um mit dem Experiment zu beginnen')
+#open videostream to mark animal
+print('Doubleclick on animal to start experiment')
 while(1):
     ret, frame = cap.read()
     cv2.imshow('image', frame)
-    if click == True: #wenn doppelklick oder esc -> break
+    if click == True: #when doubleclick or esc -> break
         break
     elif cv2.waitKey(20) &0xFF ==27:
         abbruch()
 cv2.destroyAllWindows()
 
 # setup initial location of tracking window
-r,h,c,w = iy-75,150,ix-75,150  # doppelclickkoordinaten
+r,h,c,w = iy-75,150,ix-75,150  #doubleclick coordinates
 track_window = (c,r,w,h)
 # set up the ROI for tracking
 roi = frame[r:r+h, c:c+w]
@@ -277,7 +285,7 @@ cv2.normalize(roi_hist,roi_hist,0,255,cv2.NORM_MINMAX)
 # Setup the termination criteria, either 10 iteration or move by atleast 1 pt
 term_crit = ( cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1 )
 
-#Agilitaet:
+#Agility
 zeit = time.time()
 elapsedZeit = 0
 path = 0
@@ -295,30 +303,30 @@ while(1):
     yalt=y
     stoppuhr()
     timer()
-    rimage=cv2.putText(frame, 'Agilitaetsmesung', (17,444), cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),1)
+    rimage=cv2.putText(frame, 'Agility', (17,444), cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),1)
     record()
-    cv2.imshow('Agilität', frame)
+    cv2.imshow('Agility', frame)
     if cv2.waitKey(20) & 0xFF == 27:
         abbruch()
     if elapsedZeit >= 120:
         ag=[path/pixelprometer, elapsedZeit, path/pixelprometer/elapsedZeit]
-        agtable=pd.DataFrame(ag , columns = ['1'], index = ['Zurueckgelegte Strecke[m]', 'Laufzeit[s]', 'Durchschnittsgeschwindigkeit[m/s]'])
+        agtable=pd.DataFrame(ag , columns = ['1'], index = ['Travelled distance[m]', 'Runtime[s]', 'Average speed[m/s]'])
         print(agtable)
         agtable.to_csv('agility.csv', sep=';', decimal=',')
         shutil.move('/home/pi/agility.csv', ('/home/pi/Experimente/'+name))
         praef=[(a1/elapsedZeit)*100, (a2/elapsedZeit)*100, (a3/elapsedZeit)*100, (a4/elapsedZeit)*100, (mitte/elapsedZeit)*100]
-        praefTable=pd.DataFrame(praef , columns = ['% von 120s'], index = ['Arm 1', 'Arm 2', 'Arm 3', 'Arm 4', 'Mitte'])
+        praefTable=pd.DataFrame(praef , columns = ['% von 120s'], index = ['Arm 1', 'Arm 2', 'Arm 3', 'Arm 4', 'Middle'])
         print(praefTable)
         praefTable.to_csv('preference.csv', sep=';', decimal=',')
         shutil.move('/home/pi/preference.csv', ('/home/pi/Experimente/'+name))
         break
 cv2.destroyAllWindows()
 
-zeit=time.time()#für gesamtZeit
-zeitR=time.time()#für Rundenzeit
+zeit=time.time()#for total time
+zeitR=time.time()#for time of one round
 clean=True
 runde=1
-R='Runde '+str(runde)
+R='Round '+str(runde)
 resetstoppuhr()
 
 #Experiment:
